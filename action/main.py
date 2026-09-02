@@ -1,6 +1,12 @@
 import os
 import sys
 from pathlib import Path
+
+# Ensure package directory is in sys.path regardless of current working directory
+_pkg_root = str(Path(__file__).resolve().parent.parent)
+if _pkg_root not in sys.path:
+    sys.path.insert(0, _pkg_root)
+
 from action.resource_loader import load_ena_qualifying_events, fetch_remote_resources
 from action.tabular_subsetter import subset_logsheets
 from action.graph_subsetter import subset_rdf_graph
