@@ -1,0 +1,40 @@
+name: 'subsetted-distribution-creation-action'
+description: 'Subsets observatory data linked to ENA run accessions and creates distribution release assets'
+author: 'EMO BON'
+inputs:
+  ena_records_url:
+    description: 'Remote URL pointing to the ENA run accessions CSV'
+    required: false
+    default: 'https://raw.githubusercontent.com/emo-bon/sequencing-logistics-crate/main/ena-accession-numbers-batches1-2.csv'
+  remote_resources:
+    description: 'Optional YAML/JSON string specifying additional remote key-value URLs to fetch'
+    required: false
+    default: ''
+  distribution_affix:
+    description: 'Affix appended to observatory name for release tag and asset filename'
+    required: false
+    default: 'bluecloud-ENA'
+  output_dir:
+    description: 'Local workspace staging directory for subsetted artifacts'
+    required: false
+    default: 'subsetted_distribution'
+  create_release:
+    description: 'Whether to publish or update the GitHub Release'
+    required: false
+    default: 'true'
+  github_token:
+    description: 'GitHub token for release creation'
+    required: false
+    default: ${{ github.token }}
+outputs:
+  release_tag:
+    description: 'Release tag created or updated'
+  release_download_url:
+    description: 'Direct download URL for the archive asset'
+  subsetted_events_count:
+    description: 'Number of qualifying events in the subset'
+  subsetted_samples_count:
+    description: 'Number of sample IDs in the subset'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
