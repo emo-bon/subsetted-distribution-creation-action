@@ -1,0 +1,10 @@
+.agents/
+skills-lock.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.subsetted_cache/
+subsetted_distribution/
+dist/
+build/
+*.egg-info/
