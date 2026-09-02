@@ -182,12 +182,16 @@ Following existing EMO BON conventions (`populate-action`, `semantic-uplifting-a
 - `test_release_publisher.py`:
   - Uses `unittest.mock` to verify GitHub API requests for release upserting and asset replacement.
 
-### 5.2 End-to-End Integration Verification
-- Using BPNS test data (`BPNS_So_210726` and `ERR13955095`):
-  - Run the full pipeline with `create_release: false`.
-  - Verify that the resulting zip archive contains:
-    - `logsheets/sediment_sampling.csv` with matching rows.
-    - `logsheets/sediment_measured.csv` with matching samples.
-    - `all-triples.ttl` containing the extracted subgraphs.
-    - `ena_accessions_subset.csv`.
-  - Verify that the root `all-triples.ttl` is updated with valid distribution triples.
+### 5.2 End-to-End Integration Verification on BPNS
+- **Full Workflow Testing with `emo-bon/observatory-bpns-crate`**:
+  - The implementation plan will include an end-to-end test simulating the complete BPNS repository workflow (`.github/workflows/workflow.yml`).
+  - Workflow sequence tested:
+    1. Base repository state from `emo-bon/observatory-bpns-crate` (including `logsheets/transformed/`, `all-triples.ttl`, `bluecloud-metadata.json`, and RO-Crate files).
+    2. Execution of `subsetted-distribution-creation-action` at the end of the pipeline.
+    3. Verification of:
+       - Generation of `BPNS_bluecloud-ENA.zip` containing subsetted CSVs, subsetted `all-triples.ttl`, and `ena_accessions_subset.csv`.
+       - Preservation of all replicates, blanks, and observations for matching `event_id`s (e.g. `BPNS_So_210726`).
+       - Correct update of parent `all-triples.ttl` with `dcat:Distribution` & `schema:DataDownload` triples.
+       - Clean exit code and git status ready for `git-auto-commit-action`.
+  - A test workflow file (e.g. `.github/workflows/test-bpns-workflow.yml` or integration test script) will be provided so the entire BPNS workflow integration can be run and validated continuously.
+
