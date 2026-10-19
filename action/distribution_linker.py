@@ -11,7 +11,8 @@ def link_distribution_in_triples(
     repo_name: str,
     observatory: str,
     affix: str,
-    download_url: str
+    download_url: str,
+    metadata_url: str = ""
 ) -> None:
     """
     Appends or updates dcat:Distribution & schema:DataDownload in workspace_dir/all-triples.ttl.
@@ -47,8 +48,15 @@ def link_distribution_in_triples(
     g.add((dist_uri, DCTERMS.issued, Literal(today, datatype=XSD.date)))
     g.add((dist_uri, SCHEMA.datePublished, Literal(today, datatype=XSD.date)))
 
+    if metadata_url:
+        meta_uriref = URIRef(metadata_url)
+        g.add((dist_uri, DCTERMS.conformsTo, URIRef("https://w3id.org/ro/crate/1.2")))
+        g.add((dist_uri, DCAT.accessURL, meta_uriref))
+        g.add((dist_uri, SCHEMA.subjectOf, meta_uriref))
+
     # Link from dataset
     g.add((dataset_uri, DCAT.distribution, dist_uri))
     g.add((dataset_uri, SCHEMA.distribution, dist_uri))
 
     g.serialize(ttl_file, format="turtle")
+

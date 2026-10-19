@@ -18,7 +18,15 @@ def test_link_distribution_in_triples(tmp_path: Path):
     ttl_file.write_text(INITIAL_TURTLE)
 
     download_url = "https://github.com/emo-bon/observatory-bpns-crate/releases/download/bluecloud-ENA-latest/BPNS_bluecloud-ENA.zip"
-    link_distribution_in_triples(workspace, "emo-bon/observatory-bpns-crate", "BPNS", "bluecloud-ENA", download_url)
+    metadata_url = "https://github.com/emo-bon/observatory-bpns-crate/releases/download/bluecloud-ENA-latest/ro-crate-metadata.json"
+    link_distribution_in_triples(
+        workspace,
+        "emo-bon/observatory-bpns-crate",
+        "BPNS",
+        "bluecloud-ENA",
+        download_url,
+        metadata_url=metadata_url
+    )
 
     g = rdflib.Graph()
     g.parse(ttl_file, format="turtle")
@@ -29,6 +37,12 @@ def test_link_distribution_in_triples(tmp_path: Path):
     assert (dist_uri, rdflib.URIRef("http://www.w3.org/ns/dcat#downloadURL"), rdflib.URIRef(download_url)) in g
     assert (dist_uri, rdflib.URIRef("https://schema.org/contentUrl"), rdflib.URIRef(download_url)) in g
 
+    # Check RO-Crate descriptor links
+    assert (dist_uri, rdflib.URIRef("http://purl.org/dc/terms/conformsTo"), rdflib.URIRef("https://w3id.org/ro/crate/1.2")) in g
+    assert (dist_uri, rdflib.URIRef("http://www.w3.org/ns/dcat#accessURL"), rdflib.URIRef(metadata_url)) in g
+    assert (dist_uri, rdflib.URIRef("https://schema.org/subjectOf"), rdflib.URIRef(metadata_url)) in g
+
     dataset_uri = rdflib.URIRef("https://data.emobon.embrc.eu/observatory-bpns-crate")
     assert (dataset_uri, rdflib.URIRef("http://www.w3.org/ns/dcat#distribution"), dist_uri) in g
     assert (dataset_uri, rdflib.URIRef("https://schema.org/distribution"), dist_uri) in g
+

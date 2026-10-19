@@ -8,7 +8,8 @@ def package_subset_archive(
     output_dir: Path,
     observatory: str,
     affix: str,
-    mapping_rows: List[Dict[str, str]]
+    mapping_rows: List[Dict[str, str]],
+    citation_text: str = ""
 ) -> Path:
     """
     Writes mapping CSV and README to output_dir and bundles everything into <observatory>_<affix>.zip.
@@ -27,19 +28,23 @@ def package_subset_archive(
     # 2. Write README.md
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     readme_file = output_dir / "README.md"
+    citation_section = f"\n## Citation\n{citation_text}\n" if citation_text else ""
     readme_content = f"""# EMO BON Subsetted Distribution: {observatory} ({affix})
 
 - **Date Published**: {today}
 - **Observatory Station**: {observatory}
 - **Affix / Purpose**: {affix} (Sequenced samples with ENA run accessions)
+- **Specification Conformance**: RO-Crate 1.2
 - **License**: Creative Commons Attribution 4.0 International (CC BY 4.0)
-
+{citation_section}
 ## Contents
+- `ro-crate-metadata.json`: RO-Crate 1.2 catalog metadata descriptor.
 - `logsheets/`: Sampling, measured, and observatory logsheet CSVs filtered for qualifying events.
 - `all-triples.ttl`: Subsetted RDF semantic graph for all matching events, samples, and observations.
 - `ena_accessions_subset.csv`: Mapping table of sampling events, sample IDs, and ENA run accessions.
 """
     readme_file.write_text(readme_content, encoding="utf-8")
+
 
     # 3. Zip archive creation
     archive_name = f"{observatory}_{affix}.zip"
