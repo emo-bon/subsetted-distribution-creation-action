@@ -5,8 +5,10 @@ import yaml
 
 try:
     from sema.ro.creator import ROCreator
+    from sema.commons.yml.loader import LoaderBuilder
 except ImportError:
     ROCreator = None
+    LoaderBuilder = None
 
 BLUEPRINT_FILE = Path(__file__).parent / "blueprints" / "bluecloud_ro_blueprint.yml"
 
@@ -18,48 +20,68 @@ def build_ro_crate(output_dir: Path, metadata: Dict[str, Any]) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     destination = output_dir / "ro-crate-metadata.json"
 
+    def _escape_literal(val: Any) -> Any:
+        if isinstance(val, str) and not val.startswith("http://") and not val.startswith("https://") and not val.startswith("_:") and not val.startswith("urn:"):
+            if ":" in val:
+                return val.replace(":", "\\:")
+        return val
+
     blueprint_env = {
-        "TITLE": metadata["title"],
-        "DESCRIPTION": metadata["description"],
+        "TITLE": _escape_literal(metadata["title"]),
+        "DESCRIPTION": _escape_literal(metadata["description"]),
         "DATE_PUBLISHED": metadata["date_published"],
         "DATE_MODIFIED": metadata["date_modified"],
         "REPO_LANDING_URL": metadata["repo_landing_url"],
         "RELEASE_TAG_URL": metadata["release_tag_url"],
-        "CITATION_TEXT": metadata["citation_text"],
+        "CITATION_TEXT": _escape_literal(metadata["citation_text"]),
         "TEMPORAL_COVERAGE": metadata["temporal_coverage"],
-        "OBSERVATORY_NAME": metadata["observatory_name"],
-        "COUNTRY": metadata.get("country", ""),
+        "OBSERVATORY_NAME": _escape_literal(metadata["observatory_name"]),
+        "COUNTRY": _escape_literal(metadata.get("country", "")),
         "GEO_BBOX": metadata["geo_bbox"],
     }
 
+
     # Dynamic Blueprint generation to include parameter and organization nodes
-    class BlueprintLoader(yaml.SafeLoader):
-        pass
+    if LoaderBuilder:
+        loader = LoaderBuilder().to_resolve(blueprint_env).build()
+        with open(BLUEPRINT_FILE, "r", encoding="utf-8") as f:
+            blueprint_data = yaml.load(f, Loader=loader) or {}
+    else:
+        class BlueprintLoader(yaml.SafeLoader):
+            pass
 
-    def _resolve_tag_constructor(loader, node):
-        if isinstance(node, yaml.ScalarNode):
-            return loader.construct_scalar(node)
-        elif isinstance(node, yaml.SequenceNode):
-            return loader.construct_sequence(node)
-        elif isinstance(node, yaml.MappingNode):
-            return loader.construct_mapping(node)
-        return None
+        def _resolve_tag_constructor(loader, node):
+            if isinstance(node, yaml.ScalarNode):
+                txt = loader.construct_scalar(node)
+                try:
+                    return txt.format(**blueprint_env)
+                except Exception:
+                    return txt
+            elif isinstance(node, yaml.SequenceNode):
+                return loader.construct_sequence(node)
+            elif isinstance(node, yaml.MappingNode):
+                return loader.construct_mapping(node)
+            return None
 
-    BlueprintLoader.add_constructor("!resolve", _resolve_tag_constructor)
-    BlueprintLoader.add_constructor(None, _resolve_tag_constructor)
+        BlueprintLoader.add_constructor("!resolve", _resolve_tag_constructor)
+        BlueprintLoader.add_constructor(None, _resolve_tag_constructor)
 
-    with open(BLUEPRINT_FILE, "r", encoding="utf-8") as f:
-        blueprint_data = yaml.load(f, Loader=BlueprintLoader) or {}
+        with open(BLUEPRINT_FILE, "r", encoding="utf-8") as f:
+            blueprint_data = yaml.load(f, Loader=BlueprintLoader) or {}
+
+    # Ensure prefix definition for blank nodes
+    blueprint_data.setdefault("$", {}).setdefault("prefix", {})["_"] = "_:"
 
 
     root_dataset = blueprint_data.setdefault("./", {})
+
     creator_uris = []
     for org in metadata.get("organizations", []):
         url = org.get("edmo_url") or f"urn:org:{org['name']}"
         creator_uris.append(url)
         blueprint_data[url] = {
             "$type": "Organization",
-            "name": org["name"],
+            "name": _escape_literal(org["name"]),
             "url": org.get("edmo_url", ""),
         }
     if creator_uris:
@@ -71,7 +93,7 @@ def build_ro_crate(output_dir: Path, metadata: Dict[str, Any]) -> Path:
         var_measured.append(bnode_id)
         node = {
             "$type": "PropertyValue",
-            "name": param["name"],
+            "name": _escape_literal(param["name"]),
         }
         if param.get("property_id"):
             node["propertyID"] = param["property_id"]
@@ -80,7 +102,8 @@ def build_ro_crate(output_dir: Path, metadata: Dict[str, Any]) -> Path:
         root_dataset["variableMeasured"] = var_measured
 
     if metadata.get("instruments"):
-        root_dataset["instrument"] = metadata["instruments"]
+        root_dataset["instrument"] = [_escape_literal(i) for i in metadata["instruments"]]
+
 
     # Files
     has_part = []
@@ -119,14 +142,61 @@ def build_ro_crate(output_dir: Path, metadata: Dict[str, Any]) -> Path:
             print(f"Warning: ROCreator process raised {e}, writing fallback JSON-LD directly.")
 
     if not built_with_creator:
-        _write_fallback_ro_crate(destination, metadata)
+        _write_fallback_ro_crate(destination, metadata, output_dir=output_dir)
 
     if temp_blueprint.exists():
         temp_blueprint.unlink()
 
     return destination
 
-def _write_fallback_ro_crate(destination: Path, metadata: Dict[str, Any]) -> None:
+def _write_fallback_ro_crate(destination: Path, metadata: Dict[str, Any], output_dir: Path = None) -> None:
+    root_dataset = {
+        "@id": "./",
+        "@type": "Dataset",
+        "name": metadata["title"],
+        "description": metadata["description"],
+        "datePublished": metadata["date_published"],
+        "dateModified": metadata["date_modified"],
+        "license": "https://creativecommons.org/licenses/by/4.0/",
+        "url": metadata["repo_landing_url"],
+        "identifier": [metadata["repo_landing_url"], metadata["release_tag_url"]],
+        "citation": metadata["citation_text"],
+        "temporalCoverage": metadata["temporal_coverage"],
+        "spatialCoverage": {"@id": "_:spatialCoverage"},
+        "keywords": [
+            "marine genomics",
+            "European Marine Omics Biodiversity Observation Network",
+            "EMO BON",
+            "Biota",
+            metadata["observatory_name"],
+        ],
+        "about": [
+            {"@id": "https://inspire.ec.europa.eu/metadata-codelist/TopicCategory/biota"},
+            {"@id": "https://www.embrc.eu/emo-bon/"},
+        ],
+        "publisher": {"@id": "https://www.embrc.eu/emo-bon/"},
+        "creator": [
+            {"@id": org["edmo_url"] or f"urn:org:{org['name']}"}
+            for org in metadata.get("organizations", [])
+        ],
+    }
+
+    if metadata.get("parameters"):
+        root_dataset["variableMeasured"] = [{"@id": f"_:param_{idx}"} for idx in range(len(metadata["parameters"]))]
+
+    if metadata.get("instruments"):
+        root_dataset["instrument"] = metadata["instruments"]
+
+    if output_dir:
+        has_part = []
+        for candidate in ("all-triples.ttl", "ena_accessions_subset.csv", "README.md"):
+            if (output_dir / candidate).exists():
+                has_part.append({"@id": candidate})
+        if (output_dir / "logsheets").exists():
+            has_part.append({"@id": "logsheets/"})
+        if has_part:
+            root_dataset["hasPart"] = has_part
+
     graph = [
         {
             "@id": "ro-crate-metadata.json",
@@ -134,36 +204,8 @@ def _write_fallback_ro_crate(destination: Path, metadata: Dict[str, Any]) -> Non
             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"},
             "about": {"@id": "./"},
         },
-        {
-            "@id": "./",
-            "@type": "Dataset",
-            "name": metadata["title"],
-            "description": metadata["description"],
-            "datePublished": metadata["date_published"],
-            "dateModified": metadata["date_modified"],
-            "license": "https://creativecommons.org/licenses/by/4.0/",
-            "url": metadata["repo_landing_url"],
-            "identifier": [metadata["repo_landing_url"], metadata["release_tag_url"]],
-            "citation": metadata["citation_text"],
-            "temporalCoverage": metadata["temporal_coverage"],
-            "spatialCoverage": {"@id": "_:spatialCoverage"},
-            "keywords": [
-                "marine genomics",
-                "European Marine Omics Biodiversity Observation Network",
-                "EMO BON",
-                "Biota",
-                metadata["observatory_name"],
-            ],
-            "about": [
-                {"@id": "https://inspire.ec.europa.eu/metadata-codelist/TopicCategory/biota"},
-                {"@id": "https://www.embrc.eu/emo-bon/"},
-            ],
-            "publisher": {"@id": "https://www.embrc.eu/emo-bon/"},
-            "creator": [
-                {"@id": org["edmo_url"] or f"urn:org:{org['name']}"}
-                for org in metadata.get("organizations", [])
-            ],
-        },
+        root_dataset,
+
         {
             "@id": "_:spatialCoverage",
             "@type": "Place",

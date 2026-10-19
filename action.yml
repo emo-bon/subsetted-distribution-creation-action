@@ -6,6 +6,10 @@ inputs:
     description: 'Remote URL pointing to the ENA run accessions CSV'
     required: false
     default: 'https://raw.githubusercontent.com/emo-bon/sequencing-logistics-crate/main/ena-accession-numbers-batches1-2.csv'
+  observatories_url:
+    description: 'Remote URL pointing to the governance-crate observatories.csv'
+    required: false
+    default: 'https://raw.githubusercontent.com/emo-bon/governance-crate/main/observatories.csv'
   remote_resources:
     description: 'Optional YAML/JSON string specifying additional remote key-value URLs to fetch'
     required: false
@@ -31,6 +35,8 @@ outputs:
     description: 'Release tag created or updated'
   release_download_url:
     description: 'Direct download URL for the archive asset'
+  rocrate_metadata_url:
+    description: 'Direct download URL for the standalone ro-crate-metadata.json release asset'
   subsetted_events_count:
     description: 'Number of qualifying events in the subset'
   subsetted_samples_count:
@@ -38,3 +44,4 @@ outputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
+

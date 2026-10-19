@@ -47,8 +47,10 @@ def test_build_ro_crate(tmp_path):
     assert "./" in graph_by_id
     root_dataset = graph_by_id["./"]
     assert root_dataset["name"] == metadata["title"]
-    assert root_dataset["license"] == "https://creativecommons.org/licenses/by/4.0/"
+    license_val = root_dataset["license"]
+    assert license_val == "https://creativecommons.org/licenses/by/4.0/" or (isinstance(license_val, dict) and license_val.get("@id") == "https://creativecommons.org/licenses/by/4.0/")
     assert root_dataset["temporalCoverage"] == "2021-06-01/2022-09-15"
+
     assert "EMOBON-BE" in root_dataset["keywords"]
     assert "Biota" in root_dataset["keywords"]
 

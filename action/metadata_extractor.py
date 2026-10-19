@@ -8,9 +8,12 @@ from rdflib.namespace import RDF, RDFS
 
 HABITATS = ("water", "sediment", "hard")
 SOSA_OBSERVATION = URIRef("http://www.w3.org/ns/sosa/Observation")
+SOSA_OBSERVABLE_PROPERTY = URIRef("http://www.w3.org/ns/sosa/ObservableProperty")
+SOSA_OBSERVED_PROPERTY = URIRef("http://www.w3.org/ns/sosa/observedProperty")
 DCTERMS_IDENTIFIER = URIRef("http://purl.org/dc/terms/identifier")
 SCHEMA_MEASUREMENT_TECHNIQUE = URIRef("https://schema.org/measurementTechnique")
 SCHEMA_INSTRUMENT = URIRef("https://schema.org/instrument")
+
 
 def format_habitat_list(active_habitats: List[str]) -> str:
     mapped = []
@@ -114,6 +117,7 @@ def extract_distribution_metadata(
                         organizations.append({"name": name, "edmo_url": edmo_url})
 
     # 3. Extract parameters and instruments from subsetted all-triples.ttl
+
     parameters: List[Dict[str, str]] = []
     instruments: List[str] = []
     ttl_file = output_dir / "all-triples.ttl"
@@ -122,24 +126,32 @@ def extract_distribution_metadata(
         try:
             g.parse(ttl_file, format="turtle")
             param_seen: Set[str] = set()
-            for s in g.subjects(RDF.type, SOSA_OBSERVATION):
-                labels = list(g.objects(s, RDFS.label))
-                idents = list(g.objects(s, DCTERMS_IDENTIFIER))
-                lbl = str(labels[0]) if labels else ""
-                ident = str(idents[0]) if idents else ""
+
+            param_nodes = set(g.subjects(RDF.type, SOSA_OBSERVABLE_PROPERTY))
+            for obs in g.subjects(RDF.type, SOSA_OBSERVATION):
+                for p_node in g.objects(obs, SOSA_OBSERVED_PROPERTY):
+                    param_nodes.add(p_node)
+                param_nodes.add(obs)
+
+            for node in param_nodes:
+                labels = list(g.objects(node, RDFS.label))
+                idents = list(g.objects(node, DCTERMS_IDENTIFIER))
+                lbl = str(labels[0]).strip() if labels else ""
+                ident = str(idents[0]).strip() if idents else ""
                 if lbl and lbl not in param_seen:
                     param_seen.add(lbl)
                     parameters.append({"name": lbl, "property_id": ident})
 
-                for m in g.objects(s, SCHEMA_MEASUREMENT_TECHNIQUE):
-                    inst_lbl = str(m).strip()
-                    if inst_lbl and inst_lbl not in instruments:
-                        instruments.append(inst_lbl)
+            for m in g.objects(None, SCHEMA_MEASUREMENT_TECHNIQUE):
+                inst_lbl = str(m).strip()
+                if inst_lbl and inst_lbl not in instruments:
+                    instruments.append(inst_lbl)
 
             for inst in g.objects(None, SCHEMA_INSTRUMENT):
                 inst_lbl = str(inst).strip()
                 if inst_lbl and inst_lbl not in instruments:
                     instruments.append(inst_lbl)
+
         except Exception as e:
             print(f"Warning: Could not parse {ttl_file} for parameters: {e}")
 
