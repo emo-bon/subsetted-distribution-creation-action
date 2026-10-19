@@ -31,3 +31,31 @@ def test_fetch_remote_resources(tmp_path: Path):
     assert "extra_table" in resources
     assert resources["extra_table"].exists()
     assert resources["extra_table"].read_text() == "colA,colB\n1,2\n"
+
+SAMPLE_OBSERVATORIES_CSV = """country_code,country,EMOBON_observatory_name,EMOBON_observatory_id,organization,organization_edmoid,startdate,enddate,Water_Column,Soft_Substrates,Hard_Substrates,water_site_latitude,water_site_longitude,sediment_site_latitude,sediment_site_longtitude,hard_substrates_site1_longitude,hard_substrates_site1_latitude,hard_substrates_site2_longtitude,hard_substrates_site2_latitude,contact_person,contact_person_email,ENA_accession_number_umbrella,ENA_accession_number_project,EMOBON_core,loc_broad_ocean,loc_regional,loc_loc
+BE,Belgium,EMOBON-BE,BPNS,Flanders Marine Institute (VLIZ),422,6/1/2021,,y,y,y,51.433331,2.808331,51.433331,2.80833,51.579997,2.9933,NaN,NaN,Klaas Deneudt,klaas.deneudt@vliz.be,PRJEB51688,PRJEB51652,y,North Atlantic Ocean,North Sea,Belgian part of the North Sea
+FR,France,Bay of Villefranche sur Mer- southern France,VB,Institut de la Mer de Villefranche,5041,6/1/2021,,y,n,y,43.683,7.317,NaN,NaN,43.674619,7.332372,NaN,NaN,Cecile Fauvelot,cecile.fauvelot@ird.fr,PRJEB51688,PRJEB51664,y,Mediterranean Sea - Western Basin,Villefranche Bay,Villefranche Bay - Point B
+"""
+
+def test_load_observatories_governance(tmp_path: Path):
+    from action.resource_loader import load_observatories_governance
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.return_value = io.BytesIO(SAMPLE_OBSERVATORIES_CSV.encode("utf-8"))
+        mapping = load_observatories_governance("https://example.com/observatories.csv", cache_dir=tmp_path)
+
+        assert "BPNS" in mapping
+        assert mapping["BPNS"]["observatory_name"] == "EMOBON-BE"
+        assert mapping["BPNS"]["country"] == "Belgium"
+        assert mapping["BPNS"]["water_site_latitude"] == "51.433331"
+        assert mapping["BPNS"]["water_site_longitude"] == "2.808331"
+
+        assert "VB" in mapping
+        assert mapping["VB"]["observatory_name"] == "Bay of Villefranche sur Mer- southern France"
+        assert mapping["VB"]["country"] == "France"
+
+def test_load_observatories_governance_fallback(tmp_path: Path):
+    from action.resource_loader import load_observatories_governance
+    with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
+        mapping = load_observatories_governance("https://example.com/unreachable.csv", cache_dir=tmp_path)
+        assert mapping == {}
+

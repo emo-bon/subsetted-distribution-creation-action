@@ -2,3 +2,4 @@ rdflib>=7.0.0
 requests>=2.31.0
 pyyaml>=6.0.1
 pytest>=8.0.0
+pysema @ git+https://github.com/vliz-be-opsci/py-sema.git
