@@ -1,0 +1,57 @@
+$:
+  version: "1.2"
+  prefix:
+    schema: "http://schema.org/"
+    dcat: "http://www.w3.org/ns/dcat#"
+    dct: "http://purl.org/dc/terms/"
+    sosa: "http://www.w3.org/ns/sosa/"
+
+ro-crate-metadata.json:
+  $type: CreativeWork
+  conformsTo: https://w3id.org/ro/crate/1.2
+  about: ./
+
+./:
+  $type: Dataset
+  name: !resolve '"{TITLE}"'
+  description: !resolve '"{DESCRIPTION}"'
+  datePublished: !resolve '"{DATE_PUBLISHED}"'
+  dateModified: !resolve '"{DATE_MODIFIED}"'
+  license: https://creativecommons.org/licenses/by/4.0/
+  url: !resolve '"{REPO_LANDING_URL}"'
+  identifier:
+    - !resolve '"{REPO_LANDING_URL}"'
+    - !resolve '"{RELEASE_TAG_URL}"'
+  citation: !resolve '"{CITATION_TEXT}"'
+  temporalCoverage: !resolve '"{TEMPORAL_COVERAGE}"'
+  spatialCoverage: _:spatialCoverage
+  keywords:
+    - "marine genomics"
+    - "European Marine Omics Biodiversity Observation Network"
+    - "EMO BON"
+    - "Biota"
+    - !resolve '"{OBSERVATORY_NAME}"'
+  about:
+    - https://inspire.ec.europa.eu/metadata-codelist/TopicCategory/biota
+    - https://www.embrc.eu/emo-bon/
+  publisher: https://www.embrc.eu/emo-bon/
+
+_:spatialCoverage:
+  $type: Place
+  name: !resolve '"{OBSERVATORY_NAME} [{COUNTRY}]"'
+  geo: _:geoBbox
+
+_:geoBbox:
+  $type: GeoShape
+  box: !resolve '"{GEO_BBOX}"'
+
+https://inspire.ec.europa.eu/metadata-codelist/TopicCategory/biota:
+  $type: DefinedTerm
+  name: "Biota"
+  url: https://inspire.ec.europa.eu/metadata-codelist/TopicCategory/biota
+  inDefinedTermSet: https://inspire.ec.europa.eu/metadata-codelist/TopicCategory
+
+https://www.embrc.eu/emo-bon/:
+  $type: Project
+  name: "EMO BON"
+  url: https://www.embrc.eu/emo-bon/
